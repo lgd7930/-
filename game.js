@@ -3,6 +3,53 @@ let dialogueIndex = 0, selectedChoice = null, battle = null, log = [], targetId 
 let history = [], textParts = [], partIndex = 0, characterIndex = 0;
 let typing = false, advance = null, typingTimer = null, advanceTimer = null;
 let autoMode = false, skipMode = false;
+let battleBusy = false, battlePresentation = null, hpBefore = null;
+let enemyTimer = null, combatTextTimer = null, combatRun = null;
+let combatGeneration = 0, pausedAnimations = [], combatPausedMs = 0, combatPauseStarted = null;
+function cancelCombatPlayback() {
+  clearTimeout(enemyTimer); clearTimeout(combatTextTimer);
+  combatGeneration++; battleBusy = false; battlePresentation = null; hpBefore = null; combatRun = null; combatPausedMs = 0; combatPauseStarted = null;
+}
+function visibleActor() { return battlePresentation || currentActor(battle); }
+function scheduleEnemy() {
+  clearTimeout(enemyTimer);
+  if (!battle || battle.outcome || battleBusy || reviewDialog.open || currentActor(battle).side !== 'enemy') return;
+  const generation = combatGeneration;
+  enemyTimer = setTimeout(() => {
+    if (generation === combatGeneration && !reviewDialog.open && !battleBusy && battle && !battle.outcome) doBattleAction(enemyIntent(battle, COMBAT));
+  }, PRESENTATION.enemyDelayMs);
+}
+function tickCombatText() {
+  if (!combatRun || reviewDialog.open) return;
+  const run = combatRun;
+  if (run.index >= run.lines.length) {
+    const done = run.done; combatRun = null; done(); return;
+  }
+  if (!run.node) {
+    run.node = element('p', '', 'combat-typing');
+    run.box.append(run.node);
+  }
+  const characters = Array.from(run.lines[run.index]);
+  run.node.textContent = characters.slice(0, ++run.character).join('');
+  run.box.scrollTop = run.box.scrollHeight;
+  if (run.character >= characters.length) {
+    log.push(run.lines[run.index]); run.node.classList.remove('combat-typing');
+    run.index++; run.character = 0; run.node = null;
+    combatTextTimer = setTimeout(tickCombatText, PRESENTATION.combatLineDelayMs);
+  } else combatTextTimer = setTimeout(tickCombatText, PRESENTATION.combatTypingMs);
+}
+function completeCombatText() {
+  if (!combatRun) return;
+  clearTimeout(combatTextTimer);
+  const run = combatRun;
+  for (; run.index < run.lines.length; run.index++) {
+    if (!run.node) run.node = element('p');
+    run.node.textContent = run.lines[run.index]; run.node.classList.remove('combat-typing');
+    if (!run.node.isConnected) run.box.append(run.node);
+    log.push(run.lines[run.index]); run.node = null;
+  }
+  const done = run.done; combatRun = null; done();
+}
 const reviewDialog = document.getElementById('review-dialog');
 const skipButton = document.getElementById('skip');
 const autoButton = document.getElementById('auto');
@@ -20,6 +67,7 @@ function button(label, handler, secondary = false) {
 }
 function scene(step, label, title, focusHeading = true) {
   clearTimeout(typingTimer); clearTimeout(advanceTimer);
+  if (step !== 2) cancelCombatPlayback();
   typing = false; advance = null; textParts = [];
   screen.classList.remove('battle-screen');
   screen.replaceChildren(element('p', label, 'eyebrow'));
@@ -120,12 +168,31 @@ function statusText(unit) {
   if (!unit.hp) statuses.push('전투 불능');
   return statuses.join(' · ') || '상태 이상 없음';
 }
+function healthGauge(unit) {
+  const previous = hpBefore?.[unit.id] ?? unit.hp;
+  const damaged = previous > unit.hp;
+  const track = element('div', undefined, `hp-track${damaged ? ' damaged' : ''}`);
+  track.setAttribute('role', 'progressbar'); track.setAttribute('aria-label', `${unit.name} 체력`);
+  track.setAttribute('aria-valuemin', '0'); track.setAttribute('aria-valuemax', String(unit.maxHp));
+  track.setAttribute('aria-valuenow', String(unit.hp)); track.dataset.hp = String(unit.hp);
+  track.style.setProperty('--hp-duration', `${PRESENTATION.hpDrainMs}ms`);
+  const burn = element('span', undefined, 'hp-burn');
+  const fill = element('span', undefined, 'hp-fill');
+  burn.setAttribute('aria-hidden', 'true'); fill.setAttribute('aria-hidden', 'true');
+  const initial = previous / unit.maxHp, final = unit.hp / unit.maxHp;
+  burn.style.transform = fill.style.transform = `scaleX(${initial})`;
+  track.append(burn, fill);
+  if (damaged) requestAnimationFrame(() => requestAnimationFrame(() => {
+    if (track.isConnected) burn.style.transform = fill.style.transform = `scaleX(${final})`;
+  }));
+  return track;
+}
 function partyPanel() {
   const panel = element('div', undefined, 'party-panel');
   panel.setAttribute('role', 'group'); panel.setAttribute('aria-label', '파티 멤버');
   const strip = element('div', undefined, 'party-strip');
   battle.units.filter(unit => unit.side === 'party').forEach(member => {
-    const active = member.id === currentActor(battle).id && !battle.outcome;
+    const active = member.id === visibleActor().id;
     const card = element('div', undefined, `party-cut${active ? ' current' : ''}${!member.hp ? ' fallen' : ''}`);
     card.dataset.unitId = member.id;
     if (active) card.setAttribute('aria-current', 'true');
@@ -134,51 +201,59 @@ function partyPanel() {
     const silhouette = element('span', undefined, 'silhouette'); silhouette.setAttribute('aria-hidden', 'true');
     portrait.append(silhouette, element('span', '임시 초상', 'portrait-placeholder'));
     card.append(portrait, element('strong', member.name), element('span', active ? '현재 턴' : member.hp ? '대기' : '전투 불능', 'member-role'),
-      element('span', `체력 ${member.hp}/${member.maxHp}`, 'member-health'),
+      element('span', `체력 ${member.hp}/${member.maxHp}`, 'member-health'), healthGauge(member),
       fragmentGauge(member.fragments, member.name, true), element('span', statusText(member), 'member-status'));
     strip.append(card);
   });
   panel.append(element('p', 'PARTY / 파티', 'eyebrow'), strip); return panel;
 }
-function activeCostPanel() {
-  const member = currentActor(battle);
-  const panel = element('div', undefined, 'active-cost-panel'); panel.tabIndex = -1;
-  const label = element('div', undefined, 'cost-heading');
-  label.append(element('span', `${member.name}의 턴 · 파편 코스트`), element('strong', `${member.fragments} / ${COMBAT.rules.maxFragments}`));
-  panel.append(label, fragmentGauge(member.fragments, member.name), element('p',
-    member.recoveryBlockedTurns ? `파편화 · 이번 자신의 턴 포함 ${member.recoveryBlockedTurns}턴 회복 불가` : `기본 공격: 파편 +1 · 스킬: 지정 코스트 소모 · ${COMBAT.rules.enableOverdraw ? '허용된 스킬만 초과 사용 가능' : '초과 사용은 현재 보류'}`, 'cost-note'));
-  return panel;
-}
 function enemyPanel() {
   const group = element('div', undefined, 'enemy-line'); group.setAttribute('role', 'group'); group.setAttribute('aria-label', '적과 공격 대상');
-  const actor = currentActor(battle);
+  const actor = visibleActor();
   battle.units.filter(unit => unit.side === 'enemy').forEach(unit => {
     const card = button('', () => { targetId = unit.id; showBattle(true); }, true);
     card.className = `enemy-card${targetId === unit.id ? ' selected' : ''}${actor.id === unit.id ? ' acting' : ''}`;
-    card.dataset.unitId = unit.id; card.disabled = !unit.hp || actor.side !== 'party';
+    card.dataset.unitId = unit.id; card.disabled = !unit.hp || actor.side !== 'party' || battleBusy;
     card.setAttribute('aria-label', `${unit.name} 대상 선택`); card.setAttribute('aria-pressed', String(targetId === unit.id));
     card.append(element('strong', unit.name), element('span', unit.role, 'muted'), element('span', `체력 ${unit.hp} / ${unit.maxHp}`, 'enemy-health'));
-    const hp = element('progress'); hp.max = unit.maxHp; hp.value = unit.hp; hp.setAttribute('aria-label', `${unit.name} 체력`);
+    const hp = healthGauge(unit);
     card.append(hp, fragmentGauge(unit.fragments, unit.name, true), element('span', `파편 ${unit.fragments}/5`, 'cost-note'), element('span', statusText(unit), 'status-badge'));
     group.append(card);
   }); return group;
 }
 function doBattleAction(action) {
+  if (battleBusy || reviewDialog.open || !battle || battle.outcome) return;
+  clearTimeout(enemyTimer);
+  const actor = currentActor(battle);
+  const previousHp = Object.fromEntries(battle.units.map(unit => [unit.id, unit.hp]));
   const result = takeTurn(battle, action, COMBAT);
   if (!result.ok) return;
-  log.push(...result.lines);
-  if (battle.outcome) showResult(); else showBattle();
+  battleBusy = true; battlePresentation = actor; hpBefore = previousHp; combatPausedMs = 0; combatPauseStarted = null;
+  showBattle(true);
+  const generation = combatGeneration;
+  const finish = () => {
+    if (generation !== combatGeneration) return;
+    // 스페이스로 기록을 완성해도 피해 연출은 끝까지 보여줍니다.
+    const remaining = Math.max(0, PRESENTATION.hpDrainMs + 250 - (performance.now() - started - combatPausedMs));
+    combatRun = { lines: [], index: 0, done: finish };
+    combatTextTimer = setTimeout(() => {
+      if (generation !== combatGeneration || reviewDialog.open) { if (generation === combatGeneration) combatRun = { lines: [], index: 0, done: finish }; return; }
+      combatRun = null; battleBusy = false; battlePresentation = null; hpBefore = null;
+      if (battle.outcome) showResult(); else showBattle(true);
+    }, remaining);
+  };
+  const started = performance.now();
+  combatRun = { lines: result.lines, index: 0, character: 0, node: null, box: screen.querySelector('.log'), done: finish };
+  tickCombatText();
 }
 function showBattle(preserveFocus = false) {
-  const actor = currentActor(battle);
+  const actor = visibleActor();
   const enemies = battle.units.filter(unit => unit.side === 'enemy' && unit.hp > 0);
   if (!enemies.some(unit => unit.id === targetId)) targetId = enemies[0]?.id || null;
+  clearTimeout(enemyTimer);
   scene(2, `임시 전투 · ${battle.round}라운드`, `${actor.name}의 턴`, !preserveFocus);
   screen.classList.add('battle-screen'); screen.prepend(partyPanel());
   screen.append(element('p', '임시 순서: 루이 → 루인 → 제인 → 오른팔 → 왼팔. 전투 불능 인물은 건너뜁니다.', 'muted'));
-  screen.append(button('파편 게이지 · 행동 버튼으로 이동 ↓', () => {
-    const target = screen.querySelector('.active-cost-panel'); target.scrollIntoView({ behavior: 'smooth', block: 'center' }); target.focus({ preventScroll: true });
-  }, true));
   screen.append(element('h3', actor.side === 'party' ? '공격할 적을 선택하세요' : '적의 행동을 확인하세요'), enemyPanel());
   const actions = element('div', undefined, 'actions battle-skills');
   if (actor.side === 'party') {
@@ -189,27 +264,27 @@ function showBattle(preserveFocus = false) {
       const available = actionAvailability(battle, action, COMBAT);
       const cost = action.overdraw ? `파편 ${skill.cost} 초과 사용 · 파편화 2턴` : skill.kind === 'basic' ? '기본 공격 · 파편 +1' : `파편 ${skill.cost} 소모`;
       const node = button('', () => doBattleAction(action), true);
-      node.disabled = !available.ok;
+      node.disabled = battleBusy || !available.ok;
       const damage = skill.damage !== undefined ? `피해 ${skill.damage + (skill.kind === 'basic' ? actor.attackBonus : 0)} · 임시 수치` : '';
       node.append(element('strong', skill.name), element('span', cost, 'skill-cost'), element('span', skill.description, 'skill-description'));
       if (damage) node.append(element('span', damage, 'skill-description'));
       if (!available.ok) node.append(element('span', available.reason, 'unavailable-reason'));
       actions.append(node);
     });
-    actions.append(button('방어 · 이번 턴 파편 회복 없음', () => doBattleAction({ skillId: 'defend' }), true));
+    const defend = button('방어 · 이번 턴 파편 회복 없음', () => doBattleAction({ skillId: 'defend' }), true); defend.disabled = battleBusy; actions.append(defend);
   } else {
-    const intent = enemyIntent(battle, COMBAT);
-    screen.append(element('p', `${actor.name}: ${intent.name} → ${intent.targetName} · 피해 ${intent.damage} · ${intent.cost ? `파편 ${intent.cost} 소모` : '기본 공격, 파편 +1'}`, 'intent'));
-    actions.append(button('적 행동 보기 →', () => doBattleAction(intent)));
-    screen.append(element('p', '테스트 중 각 적의 코스트 변화를 볼 수 있도록 버튼을 누르면 적이 행동합니다.', 'muted'));
+    screen.append(element('p', battleBusy ? `${actor.name}의 행동을 출력하는 중입니다…` : `${actor.name}이 곧 자동으로 행동합니다.`, 'intent'));
   }
+  if (battleBusy) screen.append(element('p', '전투 기록 출력 중 · 스페이스바로 전체 표시', 'muted'));
   appendLog();
-  const commandPanel = element('div', undefined, 'battle-command-panel'); commandPanel.append(activeCostPanel(), actions); screen.append(commandPanel);
-  if (preserveFocus) screen.querySelector(`.enemy-card[data-unit-id="${targetId}"]`)?.focus({ preventScroll: true });
+  const commandPanel = element('div', undefined, 'battle-command-panel'); commandPanel.append(actions); screen.append(commandPanel);
+  scheduleEnemy();
+  if (preserveFocus && !battleBusy) screen.querySelector(`.enemy-card[data-unit-id="${targetId}"]`)?.focus({ preventScroll: true });
 }
 function appendLog() {
   const box = element('div', undefined, 'log'); box.setAttribute('role', 'log'); box.setAttribute('aria-label', '전투 기록');
   log.slice(-12).forEach(line => box.append(element('p', line))); screen.append(box);
+  box.scrollTop = box.scrollHeight;
 }
 function showResult() {
   const result = STORY[battle.outcome];
@@ -230,10 +305,14 @@ document.addEventListener('keydown', event => {
   if (event.code !== 'Space' || reviewDialog.open || event.repeat || event.ctrlKey || event.altKey || event.metaKey) return;
   if (event.target.closest('input, textarea, select, [contenteditable="true"]')) return;
   // 출력 중에는 버튼에 포커스가 있어도 전체 출력을 우선합니다.
-  if (typing) { event.preventDefault(); completeText(); }
+  if (combatRun) { event.preventDefault(); completeCombatText(); }
+  else if (typing) { event.preventDefault(); completeText(); }
 });
 document.getElementById('review').addEventListener('click', () => {
   clearTimeout(typingTimer); clearTimeout(advanceTimer);
+  clearTimeout(enemyTimer); clearTimeout(combatTextTimer);
+  if (battleBusy) combatPauseStarted = performance.now();
+  pausedAnimations = screen.getAnimations({ subtree: true }); pausedAnimations.forEach(animation => animation.pause());
   const content = document.getElementById('review-content'); content.replaceChildren();
   if (!history.length) content.append(element('p', '아직 돌아볼 이야기가 없습니다.'));
   history.forEach(line => {
@@ -244,6 +323,10 @@ document.getElementById('review').addEventListener('click', () => {
 });
 document.getElementById('close-review').addEventListener('click', () => reviewDialog.close());
 reviewDialog.addEventListener('close', () => {
+  if (combatPauseStarted !== null) { combatPausedMs += performance.now() - combatPauseStarted; combatPauseStarted = null; }
+  pausedAnimations.forEach(animation => animation.play()); pausedAnimations = [];
+  if (combatRun) combatTextTimer = setTimeout(tickCombatText, PRESENTATION.combatTypingMs);
+  else scheduleEnemy();
   if (typing) typingTimer = setTimeout(tickText, PRESENTATION.typingIntervalMs); else scheduleAdvance();
 });
 showDialogue();

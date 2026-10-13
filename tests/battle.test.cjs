@@ -58,10 +58,15 @@ test('Gravity Chase distributes source stacks, preserves total and existing stac
  assert.deepEqual(['jane','right-hand','left-hand'].map(id=>unit(state,id).dark),[2,6,1]);
  assert.equal(unit(state,'louis').fragments,0); assert.equal(unit(state,'jane').hp,90);
 });
-test('distribution excludes dead units and allows fewer stacks than receivers', () => {
+test('distribution excludes dead units and gives every survivor at least one stack', () => {
  const state=fresh(); unit(state,'louis').fragments=1; unit(state,'jane').dark=1; unit(state,'left-hand').hp=0;
  takeTurn(state,{skillId:'gravity-chase',targetId:'jane'},COMBAT);
- assert.deepEqual(['jane','right-hand','left-hand'].map(id=>unit(state,id).dark),[1,0,0]);
+ assert.deepEqual(['jane','right-hand','left-hand'].map(id=>unit(state,id).dark),[1,1,0]);
+});
+test('one dark stack spreads to ALL three living enemies', () => {
+ const state=fresh(); unit(state,'louis').fragments=1; unit(state,'jane').dark=1;
+ takeTurn(state,{skillId:'gravity-chase',targetId:'jane'},COMBAT);
+ assert.deepEqual(['jane','right-hand','left-hand'].map(id=>unit(state,id).dark),[1,1,1]);
 });
 test('Ruin skill consumes cost, applies damage and three radiance; no invented radiance bonus', () => {
  const state=fresh(); unit(state,'ruin').fragments=1; unit(state,'jane').radiance=1;

@@ -83,10 +83,11 @@ function takeTurn(state, action, config) {
       const source = targets.find(unit => unit.id === action.targetId);
       const total = source.dark;
       source.dark = 0;
-      // 선택한 적도 분배 대상에 포함. 나머지는 생존 적 배치 순서대로 1개씩 배분합니다.
+      // 선택한 적도 포함해 모든 생존 적에게 최소 1스택. 추가 스택은 균등 분배합니다.
       const receivers = opponents(state, actor);
       receivers.forEach((unit, index) => {
-        const count = Math.floor(total / receivers.length) + (index < total % receivers.length ? 1 : 0);
+        const distributedTotal = Math.max(total, receivers.length);
+        const count = Math.floor(distributedTotal / receivers.length) + (index < distributedTotal % receivers.length ? 1 : 0);
         unit.dark += count;
         lines.push(`${unit.name}: 암흑 ${count}스택 분배 (총 ${unit.dark}).`);
       });

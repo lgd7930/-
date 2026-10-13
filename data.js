@@ -25,7 +25,7 @@ const COMBAT = {
     { id: 'louis', name: '루이', hp: 85, portraitStyle: 'arin', skills: [
       { id: 'gravity-ball', name: '그라비티 볼', kind: 'basic', effect: 'hit', cost: 0, damage: 12, status: 'dark', stacks: 1, description: '적 하나에게 중력 구체를 날려 피해와 암흑 1스택. 파편 1 회복.' },
       { id: 'gravity-fall', name: '그라비티 폴', kind: 'skill', effect: 'detonate-dark', cost: 1, damagePerStack: 18, allowOverdraw: false, description: '암흑이 있는 모든 적에게 시전. 각 적의 암흑을 모두 제거하고 스택당 18 피해(임시).' },
-      { id: 'gravity-chase', name: '그라비티 체이스', kind: 'skill', effect: 'spread-dark', cost: 1, description: '암흑이 있는 적 하나의 스택을 생존 적 전체에 균등 분배. 총량을 보존하며 나머지는 배치 순서대로(임시).' }
+      { id: 'gravity-chase', name: '그라비티 체이스', kind: 'skill', effect: 'spread-dark', cost: 1, description: '암흑이 있는 적 하나의 스택을 생존 적 전체로 확산. 모든 적에게 최소 암흑 1스택, 추가분은 균등 분배.' }
     ] },
     { id: 'ruin', name: '루인', hp: 75, portraitStyle: 'miru', skills: [
       { id: 'faint-light', name: '어둠을 밝히는 빛', kind: 'basic', effect: 'hit', cost: 0, damage: 10, status: 'radiance', stacks: 1, description: '적 하나에게 빛줄기를 날려 피해와 광채 1스택. 파편 1 회복.' },
@@ -48,4 +48,4 @@ const COMBAT = {
     ] }
   ]
 };
-const PRESENTATION = { typingIntervalMs: 35, autoDelayMs: 1400, skipDelayMs: 120 };
+const PRESENTATION = { typingIntervalMs: 35, autoDelayMs: 1400, skipDelayMs: 120, combatTypingMs: 16, combatLineDelayMs: 180, enemyDelayMs: 450, hpDrainMs: 900 };
