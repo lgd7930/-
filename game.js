@@ -140,6 +140,7 @@ function partyPanel() {
 function activeCostPanel() {
   const member = COMBAT.party.find(member => member.id === battle.activeMemberId);
   const panel = element('div', undefined, 'active-cost-panel');
+  panel.tabIndex = -1;
   const label = element('div', undefined, 'cost-heading');
   label.append(element('span', `${member.name}의 턴 · 파편 코스트`), element('strong', `${battle.fragments[member.id]} / 5`));
   panel.append(label, fragmentGauge(battle.fragments[member.id], member.name),
@@ -150,6 +151,9 @@ function showBattle() {
   scene(2, `임시 설정 · ${battle.turn}번째 턴`, '다리를 지켜라');
   screen.classList.add('battle-screen');
   screen.prepend(partyPanel());
+  screen.append(button('파편 게이지 · 행동 버튼으로 이동 ↓', () => {
+    const target = screen.querySelector('.active-cost-panel'); target.scrollIntoView({ behavior: 'smooth', block: 'center' }); target.focus({ preventScroll: true });
+  }, true));
   screen.append(element('p', `준비: ${selectedChoice.title}`, 'muted'));
   const fighters = element('div', undefined, 'fighters');
   fighters.append(health(COMBAT.player.name, battle.hp, battle.maxHp), health(COMBAT.enemy.name, battle.enemyHp, COMBAT.enemy.hp)); screen.append(fighters);

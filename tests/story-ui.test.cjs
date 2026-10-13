@@ -6,7 +6,7 @@ const assert = require('node:assert/strict');
  try {
   const page = await browser.newPage(); const errors = [];
   page.on('pageerror', error => errors.push(error.message));
-  await page.goto('http://127.0.0.1:8000');
+  await page.goto(process.env.GAME_URL || 'http://127.0.0.1:8000');
   assert.equal(await page.locator('h1').textContent(), '엘리멘트리');
   await page.waitForTimeout(160);
   const partial = await page.locator('.narrative').textContent();
@@ -37,6 +37,8 @@ const assert = require('node:assert/strict');
   await page.waitForFunction(() => document.querySelector('h2').textContent === '다리를 지켜라');
   assert.equal(await page.locator('#auto').getAttribute('aria-pressed'), 'false');
   assert.equal(await page.locator('#skip').isDisabled(), true);
+  await page.getByRole('button', { name: '파편 게이지 · 행동 버튼으로 이동' }).click();
+  assert.equal(await page.locator('.active-cost-panel').evaluate(node => document.activeElement === node), true);
   assert.equal(await page.locator('.party-cut').count(), 2);
   assert.equal(await page.locator('.fragment-gauge').count(), 3);
   for (const gauge of await page.locator('.fragment-gauge').all()) {
