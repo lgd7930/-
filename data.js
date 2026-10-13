@@ -1,7 +1,7 @@
 // 이 파일의 모든 인물, 장소, 대사, 결과는 임시 설정입니다.
 // 이야기 변경: STORY / 전투 밸런스 변경: COMBAT. 엔진 파일은 수정하지 않아도 됩니다.
 const STORY = {
-  title: '안개 숲의 약속',
+  title: '엘리멘트리',
   sceneTitle: '등불이 꺼지기 전에',
   location: '임시 설정 · 안개 숲 입구',
   dialogue: [
@@ -24,3 +24,6 @@ const COMBAT = {
   defenseMultiplier: 0.25,
   skillName: '새벽의 빛'
 };
+
+// 텍스트 연출 설정 (밀리초). 원작 설정과 별도로 조정할 수 있습니다.
+const PRESENTATION = { typingIntervalMs: 35, autoDelayMs: 1400, skipDelayMs: 120 };

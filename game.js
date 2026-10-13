@@ -1,6 +1,13 @@
 const screen = document.getElementById('screen');
 let dialogueIndex = 0, selectedChoice = null, battle = null, log = [];
+let history = [], textParts = [], partIndex = 0, characterIndex = 0;
+let typing = false, advance = null, typingTimer = null, advanceTimer = null;
+let autoMode = false, skipMode = false;
+const reviewDialog = document.getElementById('review-dialog');
+const skipButton = document.getElementById('skip');
+const autoButton = document.getElementById('auto');
 document.getElementById('title').textContent = STORY.title;
+document.title = `${STORY.title} · 스토리 게임 초안`;
 function element(tag, text, className) {
   const node = document.createElement(tag);
   if (text !== undefined) node.textContent = text;
@@ -12,7 +19,11 @@ function button(label, handler, secondary = false) {
   node.type = 'button'; node.addEventListener('click', handler); return node;
 }
 function scene(step, label, title) {
+  clearTimeout(typingTimer); clearTimeout(advanceTimer);
+  typing = false; advance = null; textParts = [];
   screen.replaceChildren(element('p', label, 'eyebrow'));
+  if (step === 1 || step === 2 || step === 3) { skipMode = false; autoMode = false; }
+  updateControls();
   const heading = element('h2', title); heading.id = 'scene-title'; heading.tabIndex = -1;
   screen.append(heading);
   document.querySelectorAll('#steps li').forEach((node, index) => {
@@ -21,14 +32,58 @@ function scene(step, label, title) {
   });
   heading.focus();
 }
+function updateControls() {
+  skipButton.setAttribute('aria-pressed', String(skipMode));
+  autoButton.setAttribute('aria-pressed', String(autoMode));
+  skipButton.textContent = skipMode ? '스킵 중 · 중지' : '스킵';
+  autoButton.textContent = autoMode ? '자동 진행 · 켜짐' : '자동 진행';
+  skipButton.disabled = !advance;
+  autoButton.disabled = !advance;
+}
+function scheduleAdvance() {
+  clearTimeout(advanceTimer);
+  if (typing || !advance || reviewDialog.open || (!autoMode && !skipMode)) return;
+  advanceTimer = setTimeout(() => { if (!reviewDialog.open && advance) advance(); },
+    skipMode ? PRESENTATION.skipDelayMs : PRESENTATION.autoDelayMs);
+}
+function tickText() {
+  if (!typing || reviewDialog.open) return;
+  const part = textParts[partIndex];
+  part.node.textContent = part.characters.slice(0, ++characterIndex).join('');
+  if (characterIndex >= part.characters.length) {
+    partIndex++; characterIndex = 0;
+    if (partIndex >= textParts.length) { typing = false; scheduleAdvance(); return; }
+  }
+  typingTimer = setTimeout(tickText, PRESENTATION.typingIntervalMs);
+}
+function completeText() {
+  clearTimeout(typingTimer);
+  textParts.forEach(part => { part.node.textContent = part.text; });
+  typing = false; scheduleAdvance();
+}
+function narrate(lines, next) {
+  partIndex = 0; characterIndex = 0;
+  textParts = lines.map(line => {
+    if (line.speaker) screen.append(element('p', line.speaker, 'speaker'));
+    const node = element('p', '', 'narrative'); screen.append(node);
+    history.push({ speaker: line.speaker || '서술', text: line.text });
+    return { node, text: line.text, characters: Array.from(line.text) };
+  });
+  advance = next || null; typing = true;
+  screen.append(element('p', '스페이스바: 즉시 전체 출력 · 다음 버튼: 출력 완료 후 진행', 'muted'));
+  updateControls();
+  if (skipMode) completeText(); else typingTimer = setTimeout(tickText, PRESENTATION.typingIntervalMs);
+}
+function nextText() {
+  if (typing) completeText(); else if (advance) { clearTimeout(advanceTimer); advance(); }
+}
 function showDialogue() {
   scene(0, STORY.location, STORY.sceneTitle);
-  const line = STORY.dialogue[dialogueIndex];
-  screen.append(element('p', line.speaker, 'speaker'), element('p', line.text, 'narrative'));
-  screen.append(element('p', `${dialogueIndex + 1} / ${STORY.dialogue.length}`, 'muted'));
-  screen.append(button(dialogueIndex === STORY.dialogue.length - 1 ? '준비를 선택하기 →' : '다음 대화 →', () => {
+  narrate([STORY.dialogue[dialogueIndex]], () => {
     if (++dialogueIndex < STORY.dialogue.length) showDialogue(); else showChoices();
-  }));
+  });
+  screen.append(element('p', `${dialogueIndex + 1} / ${STORY.dialogue.length}`, 'muted'));
+  screen.append(button(dialogueIndex === STORY.dialogue.length - 1 ? '준비를 선택하기 →' : '다음 대화 →', nextText));
 }
 function showChoices() {
   scene(1, '임시 설정 · 여정의 갈림길', STORY.choiceTitle);
@@ -37,8 +92,8 @@ function showChoices() {
     const node = button('', () => {
       selectedChoice = choice; battle = createBattle(COMBAT, choice);
       scene(1, '임시 설정 · 선택한 준비', choice.title);
-      screen.append(element('p', choice.response, 'narrative'), element('p', STORY.encounter, 'narrative'));
-      screen.append(button('다리 위로 · 전투 시작 →', () => { log = ['전투 시작. 적의 다음 행동을 살펴보세요.']; showBattle(); }));
+      narrate([{ text: choice.response }, { text: STORY.encounter }], () => { log = ['전투 시작. 적의 다음 행동을 살펴보세요.']; showBattle(); });
+      screen.append(button('다리 위로 · 전투 시작 →', nextText));
     }, true);
     node.append(element('strong', choice.title), element('span', choice.description)); choices.append(node);
   });
@@ -73,8 +128,36 @@ function appendLog() {
 function showResult() {
   const result = STORY[battle.outcome];
   scene(3, `임시 설정 · ${battle.outcome === 'victory' ? '승리' : '패배'}`, result.title);
-  screen.append(element('p', result.text, 'narrative'), element('p', `선택: ${selectedChoice.title} · 남은 체력: ${battle.hp} / ${battle.maxHp}`, 'muted'));
+  narrate([{ text: result.text }]);
+  screen.append(element('p', `선택: ${selectedChoice.title} · 남은 체력: ${battle.hp} / ${battle.maxHp}`, 'muted'));
   appendLog();
-  screen.append(button('처음부터 다시 플레이 ↻', () => { dialogueIndex = 0; selectedChoice = null; battle = null; log = []; showDialogue(); }));
+  screen.append(button('처음부터 다시 플레이 ↻', () => { dialogueIndex = 0; selectedChoice = null; battle = null; log = []; history = []; showDialogue(); }));
 }
+skipButton.addEventListener('click', () => {
+  skipMode = !skipMode; autoMode = false; updateControls();
+  if (skipMode && typing) completeText(); else scheduleAdvance();
+});
+autoButton.addEventListener('click', () => {
+  autoMode = !autoMode; skipMode = false; updateControls(); scheduleAdvance();
+});
+document.addEventListener('keydown', event => {
+  if (event.code !== 'Space' || reviewDialog.open || event.repeat || event.ctrlKey || event.altKey || event.metaKey) return;
+  if (event.target.closest('input, textarea, select, [contenteditable="true"]')) return;
+  // 출력 중에는 버튼에 포커스가 있어도 전체 출력을 우선합니다.
+  if (typing) { event.preventDefault(); completeText(); }
+});
+document.getElementById('review').addEventListener('click', () => {
+  clearTimeout(typingTimer); clearTimeout(advanceTimer);
+  const content = document.getElementById('review-content'); content.replaceChildren();
+  if (!history.length) content.append(element('p', '아직 돌아볼 이야기가 없습니다.'));
+  history.forEach(line => {
+    const entry = element('div', undefined, 'review-entry');
+    entry.append(element('p', line.speaker, 'speaker'), element('p', line.text)); content.append(entry);
+  });
+  reviewDialog.showModal(); document.getElementById('close-review').focus();
+});
+document.getElementById('close-review').addEventListener('click', () => reviewDialog.close());
+reviewDialog.addEventListener('close', () => {
+  if (typing) typingTimer = setTimeout(tickText, PRESENTATION.typingIntervalMs); else scheduleAdvance();
+});
 showDialogue();
