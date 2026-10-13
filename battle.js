@@ -1,7 +1,9 @@
 // 화면과 독립된 전투 규칙. 수치는 data.js에서 관리합니다.
 function createBattle(config, choice) {
   const maxHp = config.player.hp + choice.hpBonus;
-  return { hp: maxHp, maxHp, enemyHp: config.enemy.hp, skills: config.player.skills, turn: 1, attackBonus: choice.attackBonus, outcome: null };
+  const party = config.party || [{ id: 'player', name: config.player.name, initialFragments: 5 }];
+  const fragments = Object.fromEntries(party.map(member => [member.id, Math.max(0, Math.min(5, member.initialFragments ?? 5))]));
+  return { activeMemberId: party[0].id, fragments, hp: maxHp, maxHp, enemyHp: config.enemy.hp, skills: config.player.skills, turn: 1, attackBonus: choice.attackBonus, outcome: null };
 }
 function enemyIntent(state, config) {
   const heavy = state.turn % config.enemy.heavyEvery === 0;

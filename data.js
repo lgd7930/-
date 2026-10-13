@@ -21,6 +21,11 @@ const STORY = {
 const COMBAT = {
   player: { name: '아린', hp: 40, attack: 8, skills: 2, skillDamage: 18 },
   enemy: { name: '그림자 늑대', hp: 48, attack: 9, heavyAttack: 15, heavyEvery: 3 },
+  // 게이지 표시용 임시 시작값. 소모·회복과 파티 턴 규칙은 아직 미정입니다.
+  party: [
+    { id: 'arin', name: '아린', portraitStyle: 'arin', initialFragments: 5, role: '전투 중' },
+    { id: 'miru', name: '미루', portraitStyle: 'miru', initialFragments: 5, role: '동행 · 대기' }
+  ],
   defenseMultiplier: 0.25,
   skillName: '새벽의 빛'
 };

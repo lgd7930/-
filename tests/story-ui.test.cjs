@@ -37,6 +37,24 @@ const assert = require('node:assert/strict');
   await page.waitForFunction(() => document.querySelector('h2').textContent === '다리를 지켜라');
   assert.equal(await page.locator('#auto').getAttribute('aria-pressed'), 'false');
   assert.equal(await page.locator('#skip').isDisabled(), true);
+  assert.equal(await page.locator('.party-cut').count(), 2);
+  assert.equal(await page.locator('.fragment-gauge').count(), 3);
+  for (const gauge of await page.locator('.fragment-gauge').all()) {
+   assert.equal(await gauge.locator('.fragment-piece').count(), 5);
+   assert.equal(await gauge.getAttribute('aria-valuenow'), '5');
+  }
+  assert.equal(await page.locator('.party-cut.current strong').textContent(), '아린');
+  // 비어 있는 조각도 표현하고 큰 게이지/인물 게이지가 같은 값을 읽는지 확인합니다.
+  await page.evaluate(() => { battle.fragments[battle.activeMemberId] = 2; showBattle(); });
+  assert.equal(await page.locator('.active-cost-panel .filled').count(), 2);
+  assert.equal(await page.locator('.party-cut.current .filled').count(), 2);
+  assert.equal(await page.locator('.party-cut:not(.current) .filled').count(), 5);
+  await page.screenshot({path:'/tmp/elementry-battle-desktop.png',fullPage:true});
+  await page.setViewportSize({width:375,height:812});
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+  await page.screenshot({path:'/tmp/elementry-battle-mobile.png',fullPage:true});
+  await page.setViewportSize({width:1280,height:720});
+  await page.evaluate(() => { battle.fragments[battle.activeMemberId] = 5; showBattle(); });
   for (const name of ['새벽의 빛', '새벽의 빛', '방어 ·', '공격 ·', '공격 ·']) await page.getByRole('button', { name }).click();
   await page.keyboard.press('Space');
   assert.ok((await page.locator('.narrative').textContent()).endsWith('지켜졌다.'));
@@ -55,6 +73,6 @@ const assert = require('node:assert/strict');
   await page.setViewportSize({width:375,height:812});
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
   assert.deepEqual(errors, []);
-  console.log('PASS: title, typing, Space completion, skip, auto on/off, review pause/resume, choice/battle boundaries, result, restart, mobile, no JS errors');
+  console.log('PASS: title, typing, Space completion, skip, auto on/off, review pause/resume, choice/battle boundaries, result, restart, party cuts, five fragments, full/empty gauge synchronization, mobile, no JS errors');
  } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

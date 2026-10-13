@@ -21,6 +21,7 @@ function button(label, handler, secondary = false) {
 function scene(step, label, title) {
   clearTimeout(typingTimer); clearTimeout(advanceTimer);
   typing = false; advance = null; textParts = [];
+  screen.classList.remove('battle-screen');
   screen.replaceChildren(element('p', label, 'eyebrow'));
   if (step === 1 || step === 2 || step === 3) { skipMode = false; autoMode = false; }
   updateControls();
@@ -104,8 +105,51 @@ function health(name, value, max) {
   card.append(element('h3', name), element('p', `체력 ${value} / ${max}`));
   const meter = element('progress'); meter.max = max; meter.value = value; meter.setAttribute('aria-label', `${name} 체력`); card.append(meter); return card;
 }
+// 같은 현재값으로 하단 큰 게이지와 각 인물의 작은 게이지를 표시합니다.
+function fragmentGauge(value, name, compact = false) {
+  const gauge = element('div', undefined, compact ? 'fragment-gauge compact' : 'fragment-gauge');
+  gauge.setAttribute('role', 'meter');
+  gauge.setAttribute('aria-label', `${name}의 파편 코스트`);
+  gauge.setAttribute('aria-valuemin', '0'); gauge.setAttribute('aria-valuemax', '5');
+  gauge.setAttribute('aria-valuenow', String(value));
+  gauge.setAttribute('aria-valuetext', `파편 ${value} / 5`);
+  for (let i = 0; i < 5; i++) {
+    const piece = element('span', undefined, `fragment-piece${i < value ? ' filled' : ''}`);
+    piece.setAttribute('aria-hidden', 'true'); gauge.append(piece);
+  }
+  return gauge;
+}
+function partyPanel() {
+  const panel = element('div', undefined, 'party-panel');
+  panel.setAttribute('role', 'group'); panel.setAttribute('aria-label', '파티 멤버');
+  const strip = element('div', undefined, 'party-strip');
+  COMBAT.party.forEach(member => {
+    const active = member.id === battle.activeMemberId;
+    const card = element('div', undefined, `party-cut${active ? ' current' : ''}`);
+    if (active) card.setAttribute('aria-current', 'true');
+    const portrait = element('div', undefined, `portrait ${member.portraitStyle}`);
+    portrait.setAttribute('role', 'img'); portrait.setAttribute('aria-label', `${member.name} 임시 실루엣 초상`);
+    const silhouette = element('span', undefined, 'silhouette'); silhouette.setAttribute('aria-hidden', 'true');
+    portrait.append(silhouette, element('span', '임시 초상', 'portrait-placeholder'));
+    card.append(portrait, element('strong', member.name), element('span', active ? '현재 턴' : member.role, 'member-role'),
+      fragmentGauge(battle.fragments[member.id], member.name, true));
+    strip.append(card);
+  });
+  panel.append(element('p', 'PARTY / 파티', 'eyebrow'), strip); return panel;
+}
+function activeCostPanel() {
+  const member = COMBAT.party.find(member => member.id === battle.activeMemberId);
+  const panel = element('div', undefined, 'active-cost-panel');
+  const label = element('div', undefined, 'cost-heading');
+  label.append(element('span', `${member.name}의 턴 · 파편 코스트`), element('strong', `${battle.fragments[member.id]} / 5`));
+  panel.append(label, fragmentGauge(battle.fragments[member.id], member.name),
+    element('p', '시작값 5는 임시입니다. 코스트 소모·회복 규칙은 아직 적용하지 않았습니다.', 'cost-note'));
+  return panel;
+}
 function showBattle() {
   scene(2, `임시 설정 · ${battle.turn}번째 턴`, '다리를 지켜라');
+  screen.classList.add('battle-screen');
+  screen.prepend(partyPanel());
   screen.append(element('p', `준비: ${selectedChoice.title}`, 'muted'));
   const fighters = element('div', undefined, 'fighters');
   fighters.append(health(COMBAT.player.name, battle.hp, battle.maxHp), health(COMBAT.enemy.name, battle.enemyHp, COMBAT.enemy.hp)); screen.append(fighters);
@@ -118,8 +162,10 @@ function showBattle() {
   });
   const skill = action('skill', `${COMBAT.skillName} · ${COMBAT.player.skillDamage} 피해 (${battle.skills}회)`); skill.disabled = battle.skills === 0;
   actions.append(action('attack', `공격 · ${COMBAT.player.attack + battle.attackBonus} 피해`), action('defend', `방어 · 받는 피해 ${Math.round((1 - COMBAT.defenseMultiplier) * 100)}% 감소`), skill);
-  screen.append(actions, element('p', '한 행동마다 적도 한 번 행동합니다. 스킬 사용 횟수는 전투 전체에 적용됩니다.', 'muted'));
+  screen.append(element('p', '한 행동마다 적도 한 번 행동합니다. 스킬 사용 횟수는 전투 전체에 적용됩니다.', 'muted'));
   appendLog();
+  const commandPanel = element('div', undefined, 'battle-command-panel');
+  commandPanel.append(activeCostPanel(), actions); screen.append(commandPanel);
 }
 function appendLog() {
   const box = element('div', undefined, 'log'); box.setAttribute('role', 'log'); box.setAttribute('aria-label', '전투 기록');
