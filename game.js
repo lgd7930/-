@@ -141,8 +141,8 @@ function showChoices() {
     const node = button('', () => {
       selectedChoice = choice; battle = createBattle(COMBAT, choice);
       scene(1, '임시 설정 · 선택한 준비', choice.title);
-      narrate([{ text: choice.response }, { text: STORY.encounter }], () => { log = ['전투 시작. 모두 파편 0. 루이 → 루인 → 제인 → 오른팔 → 왼팔 순서로 행동합니다.']; targetId = null; showBattle(); });
-      screen.append(button('다리 위로 · 전투 시작 →', nextText));
+      narrate([{ text: choice.response }, { text: STORY.encounter }], () => { log = [`전투 시작. 모두 파편 0. ${battle.units.map(unit => unit.name).join(' → ')} 순서로 행동합니다.`]; targetId = null; showBattle(); });
+      screen.append(button('전투 시작 →', nextText));
     }, true);
     node.append(element('strong', choice.title), element('span', choice.description)); choices.append(node);
   });
@@ -253,7 +253,7 @@ function showBattle(preserveFocus = false) {
   clearTimeout(enemyTimer);
   scene(2, `임시 전투 · ${battle.round}라운드`, `${actor.name}의 턴`, !preserveFocus);
   screen.classList.add('battle-screen'); screen.prepend(partyPanel());
-  screen.append(element('p', '임시 순서: 루이 → 루인 → 제인 → 오른팔 → 왼팔. 전투 불능 인물은 건너뜁니다.', 'muted'));
+  screen.append(element('p', `임시 순서: ${battle.units.map(unit => unit.name).join(' → ')}. 전투 불능 인물은 건너뜁니다.`, 'muted'));
   screen.append(element('h3', actor.side === 'party' ? '공격할 적을 선택하세요' : '적의 행동을 확인하세요'), enemyPanel());
   const actions = element('div', undefined, 'actions battle-skills');
   if (actor.side === 'party') {
@@ -265,9 +265,10 @@ function showBattle(preserveFocus = false) {
       const cost = action.overdraw ? `파편 ${skill.cost} 초과 사용 · 파편화 2턴` : skill.kind === 'basic' ? '기본 공격 · 파편 +1' : `파편 ${skill.cost} 소모`;
       const node = button('', () => doBattleAction(action), true);
       node.disabled = battleBusy || !available.ok;
-      const damage = skill.damage !== undefined ? `피해 ${skill.damage + (skill.kind === 'basic' ? actor.attackBonus : 0)} · 임시 수치` : '';
+      const damage = skill.damage !== undefined ? `피해 ${skill.damage + (skill.kind === 'basic' ? actor.attackBonus : 0)} · 임시 수치` : skill.damagePerStack !== undefined ? `암흑 1스택당 피해 ${skill.damagePerStack} · 임시 수치` : '';
       node.append(element('strong', skill.name), element('span', cost, 'skill-cost'), element('span', skill.description, 'skill-description'));
       if (damage) node.append(element('span', damage, 'skill-description'));
+      if (skill.status) node.append(element('span', `${skill.status === 'dark' ? '암흑' : '광채'} +${skill.stacks}`, 'skill-description'));
       if (!available.ok) node.append(element('span', available.reason, 'unavailable-reason'));
       actions.append(node);
     });

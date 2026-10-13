@@ -3,7 +3,7 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const path = require('node:path');
 const { createBattle, currentActor, opponents, actionAvailability, takeTurn, enemyIntent } = require('../battle.js');
-const { STORY, COMBAT } = vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../data.js'), 'utf8') + '\n({STORY, COMBAT})');
+const { STORY, COMBAT } = vm.runInNewContext(['characters/루이.js', 'characters/루인.js', 'data.js'].map(file => fs.readFileSync(path.join(__dirname, '..', file), 'utf8')).join('\n') + '\n({STORY, COMBAT})');
 let checks = 0;
 function test(name, fn) { fn(); checks++; console.log('PASS', name); }
 const fresh = () => createBattle(COMBAT, STORY.choices[0]);
@@ -153,5 +153,15 @@ test('full unmodified battles are winnable for both choices with legal actions',
   }
   assert.equal(state.outcome,'victory',`choice ${choice.id} failed`);
  }
+});
+test('extra character definitions join turn order and retain editable stats without changing source data', () => {
+ const config=JSON.parse(JSON.stringify(COMBAT));
+ config.party.push({id:'guest',name:'새 동료',hp:60,profile:{personality:'메모'},skills:[{id:'guest-hit',name:'추가 공격',kind:'basic',effect:'hit',cost:0,damage:7}]});
+ const state=createBattle(config);
+ takeTurn(state,{skillId:'defend'},config); takeTurn(state,{skillId:'defend'},config);
+ assert.equal(currentActor(state).id,'guest'); assert.equal(currentActor(state).maxHp,60);
+ takeTurn(state,{skillId:'guest-hit',targetId:'jane'},config);
+ assert.equal(unit(state,'jane').hp,83); assert.equal(unit(state,'guest').fragments,1);
+ assert.equal(currentActor(state).id,'jane'); assert.equal(config.enemies[0].hp,90);
 });
 console.log(`${checks} checks passed`);

@@ -13,7 +13,107 @@
 .hp-track{height:9px;position:relative;overflow:visible;background:#0a171b;border-radius:4px;margin:8px 0 16px;isolation:isolate}.hp-fill,.hp-burn{position:absolute;inset:0;border-radius:4px;transform-origin:left center;pointer-events:none}.hp-fill{background:linear-gradient(90deg,#579c86,#bfe4b6);z-index:2}.hp-burn{background:linear-gradient(90deg,#cf542a,#ffa836,#fff6a4);z-index:1}.damaged .hp-fill{transition:transform var(--hp-duration) ease-out}.damaged .hp-burn{transition:transform calc(var(--hp-duration) + 150ms) ease-out 150ms;box-shadow:0 0 12px #ff8b3c99}.damaged .hp-burn:after{content:'';position:absolute;right:0;top:-8px;width:12px;height:22px;border-radius:70% 25% 60% 35%;background:radial-gradient(ellipse at bottom,#fff4ae,#ff9336 45%,#f4401a66 70%,transparent 75%);filter:drop-shadow(0 0 5px #ffac52);animation:hp-flame calc(var(--hp-duration) + 250ms) ease-out forwards}.damaged{animation:hp-hit 350ms ease-out}.party-cut .hp-track{margin:0 4px 15px;height:6px}.enemy-card .hp-track{margin-bottom:16px}.battle-screen .log{max-height:190px;overflow:auto;scrollbar-width:thin}.combat-typing:after{content:'▍';color:#e6c993;animation:typing-caret .6s steps(2) infinite}@keyframes hp-flame{0%{opacity:1;transform:scaleY(.65) rotate(-8deg)}25%{opacity:1;transform:scaleY(1.2) rotate(12deg)}60%{opacity:.9;transform:scaleY(.85) rotate(-12deg)}100%{opacity:0;transform:scaleY(.3)}}@keyframes hp-hit{0%,100%{filter:none}30%{filter:brightness(1.7);box-shadow:0 0 10px #ff773c}}@keyframes typing-caret{to{opacity:0}}@media(prefers-reduced-motion:reduce){.damaged .hp-fill,.damaged .hp-burn{transition:none}.damaged,.damaged .hp-burn:after,.combat-typing:after{animation:none}.damaged .hp-burn:after{display:none}}
 
 </style></head>
-<body><main><header><div class="story-controls" role="group" aria-label="대화 조작"><button id="skip" type="button" class="secondary" aria-pressed="false">스킵</button><button id="review" type="button" class="secondary">돌아보기</button><button id="auto" type="button" class="secondary" aria-pressed="false">자동 진행</button></div><span class="eyebrow">STORY PROTOTYPE / 01</span><span class="tag">인물·스킬: 원작 설정 / 장면·수치: 임시</span><h1 id="title">엘리멘트리</h1><p class="subtitle">파편 전투 버전 0.5 · 한 번의 선택, 한 번의 전투.</p></header><nav aria-label="진행 단계"><ol id="steps"><li>01 대화</li><li>02 선택</li><li>03 전투</li><li>04 결과</li></ol></nav><section id="screen" aria-labelledby="scene-title"></section><footer>원작 자료를 반영하기 전의 플레이 가능한 초안입니다.</footer></main><dialog id="review-dialog" aria-labelledby="review-title"><div class="review-heading"><h2 id="review-title">돌아보기</h2><button id="close-review" type="button" class="secondary">닫기</button></div><p class="muted">이번 플레이에서 만난 이야기입니다. 닫으면 이어서 진행합니다.</p><div id="review-content"></div></dialog><script>
+<body><main><header><div class="story-controls" role="group" aria-label="대화 조작"><button id="skip" type="button" class="secondary" aria-pressed="false">스킵</button><button id="review" type="button" class="secondary">돌아보기</button><button id="auto" type="button" class="secondary" aria-pressed="false">자동 진행</button></div><span class="eyebrow">STORY PROTOTYPE / 01</span><span class="tag">인물·스킬: 원작 설정 / 장면·수치: 임시</span><h1 id="title">엘리멘트리</h1><p class="subtitle">파편 전투 버전 0.6 · 한 번의 선택, 한 번의 전투.</p></header><nav aria-label="진행 단계"><ol id="steps"><li>01 대화</li><li>02 선택</li><li>03 전투</li><li>04 결과</li></ol></nav><section id="screen" aria-labelledby="scene-title"></section><footer>플레이 가능한 초안 · 장면과 전투 수치는 임시입니다.</footer></main><dialog id="review-dialog" aria-labelledby="review-title"><div class="review-heading"><h2 id="review-title">돌아보기</h2><button id="close-review" type="button" class="secondary">닫기</button></div><p class="muted">이번 플레이에서 만난 이야기입니다. 닫으면 이어서 진행합니다.</p><div id="review-content"></div></dialog><script>
+// 루이의 설정과 스킬을 이 파일에서 수정하세요.
+// 숫자는 임시 수치입니다. 이름과 기술의 기본 효과는 사용자 설정입니다.
+// 숫자에는 따옴표를 쓰지 않고, 글에는 따옴표를 유지하세요.
+const LOUIS = {
+  id: 'louis',              // 게임 연결용 이름: 다른 인물과 중복 금지
+  name: '루이',             // 화면에 표시되는 이름
+  hp: 85,                  // 최대 체력 (임시)
+  portraitStyle: 'arin',    // 임시 초상 스타일
+
+  // 소설 설정을 정리하는 메모입니다. 아직 게임 화면에는 출력하지 않습니다.
+  profile: {
+    relationship: '루인의 손위 형제',
+    age: null,             // 미정. 예: 20
+    affiliation: '미정',    // 소속
+    personality: '미정',    // 성격
+    backstory: '미정'       // 배경 이야기
+  },
+
+  // 스킬을 추가하려면 아래 { ... } 한 묶음을 복사해 skills 안에 넣으세요.
+  // id는 각각 달라야 합니다. 새 기술의 기본 처리 방식은 아래 effect 중 선택합니다.
+  skills: [
+    {
+      id: 'gravity-ball',
+      name: '그라비티 볼',
+      kind: 'basic',        // basic: 기본 공격 / skill: 파편을 쓰는 기술
+      effect: 'hit',        // hit: 선택한 적 하나에 피해와 상태 스택
+      cost: 0,             // 기본 공격은 0. 공격 후 공통 규칙에 따라 파편 회복
+      damage: 12,          // 피해량 (임시). 전투 준비 보너스는 별도 적용
+      status: 'dark',       // dark: 암흑 / radiance: 광채
+      stacks: 1,           // 부여할 스택 수
+      description: '중력을 응축한 구체를 적 하나에게 날린다.'
+    },
+    {
+      id: 'gravity-fall',
+      name: '그라비티 폴',
+      kind: 'skill',
+      effect: 'detonate-dark', // 암흑이 있는 모든 적에게 스택을 소진하며 피해
+      cost: 1,                // 파편 소모량
+      damagePerStack: 18,      // 암흑 1스택당 피해량 (임시)
+      allowOverdraw: false,    // 초과 사용 보류. 공통 허용 설정도 켜져야 사용 가능
+      description: '암흑이 있는 모든 적의 스택을 각각 모두 소진해 피해를 준다.'
+    },
+    {
+      id: 'gravity-chase',
+      name: '그라비티 체이스',
+      kind: 'skill',
+      effect: 'spread-dark',   // 선택한 적의 암흑을 생존 적 전체에 확산
+      cost: 1,
+      description: '암흑이 있는 적 하나의 스택을 전체로 확산. 모든 생존 적에게 최소 1스택, 추가분은 균등 분배.'
+    }
+  ]
+};
+
+</script><script>
+// 루인의 설정과 스킬을 이 파일에서 수정하세요.
+// 숫자는 임시 수치입니다. 이름과 기술의 기본 효과는 사용자 설정입니다.
+// 숫자에는 따옴표를 쓰지 않고, 글에는 따옴표를 유지하세요.
+const RUIN = {
+  id: 'ruin',               // 게임 연결용 이름: 다른 인물과 중복 금지
+  name: '루인',              // 화면에 표시되는 이름
+  hp: 75,                  // 최대 체력 (임시)
+  portraitStyle: 'miru',    // 임시 초상 스타일
+
+  // 소설 설정용 메모. 아직 게임 화면에는 출력하지 않습니다.
+  profile: {
+    relationship: '루이의 동생',
+    age: null,
+    affiliation: '미정',
+    personality: '미정',
+    backstory: '미정'
+  },
+
+  // 스킬 하나는 { ... } 한 묶음입니다. 추가할 때 id를 중복하지 마세요.
+  skills: [
+    {
+      id: 'faint-light',
+      name: '어둠을 밝히는 빛',
+      kind: 'basic',        // basic: 기본 공격 / skill: 파편을 쓰는 기술
+      effect: 'hit',        // 선택한 적 하나에게 피해와 상태 스택
+      cost: 0,
+      damage: 10,          // 피해량 (임시)
+      status: 'radiance',   // radiance: 광채 / dark: 암흑
+      stacks: 1,
+      description: '미약한 빛줄기를 적 하나에게 날린다.'
+    },
+    {
+      id: 'cutting-light',
+      name: '어둠을 가르는 빛',
+      kind: 'skill',
+      effect: 'hit',
+      cost: 1,             // 파편 소모량
+      damage: 20,          // 피해량 (임시)
+      status: 'radiance',
+      stacks: 3,           // 부여할 광채 스택 수. 추가 효과는 아직 미정
+      description: '전방을 가르는 빛줄기를 적 하나에게 날린다.'
+    }
+  ]
+};
+
+</script><script>
 // 인물 이름·형제 관계·아군 스킬은 사용자 설정입니다.
 // 장면, 피해량, 체력, 적 스킬, 턴 순서와 아직 미정인 세부 처리는 임시 설정입니다.
 const STORY = {
@@ -37,17 +137,9 @@ const STORY = {
 const COMBAT = {
   rules: { maxFragments: 5, initialFragments: 0, basicRecovery: 1, fragmentationTurns: 2, enableOverdraw: false, defenseMultiplier: 0.25 },
   // 아래 피해량·체력은 모두 임시이며 자유롭게 교체할 수 있습니다.
-  party: [
-    { id: 'louis', name: '루이', hp: 85, portraitStyle: 'arin', skills: [
-      { id: 'gravity-ball', name: '그라비티 볼', kind: 'basic', effect: 'hit', cost: 0, damage: 12, status: 'dark', stacks: 1, description: '적 하나에게 중력 구체를 날려 피해와 암흑 1스택. 파편 1 회복.' },
-      { id: 'gravity-fall', name: '그라비티 폴', kind: 'skill', effect: 'detonate-dark', cost: 1, damagePerStack: 18, allowOverdraw: false, description: '암흑이 있는 모든 적에게 시전. 각 적의 암흑을 모두 제거하고 스택당 18 피해(임시).' },
-      { id: 'gravity-chase', name: '그라비티 체이스', kind: 'skill', effect: 'spread-dark', cost: 1, description: '암흑이 있는 적 하나의 스택을 생존 적 전체로 확산. 모든 적에게 최소 암흑 1스택, 추가분은 균등 분배.' }
-    ] },
-    { id: 'ruin', name: '루인', hp: 75, portraitStyle: 'miru', skills: [
-      { id: 'faint-light', name: '어둠을 밝히는 빛', kind: 'basic', effect: 'hit', cost: 0, damage: 10, status: 'radiance', stacks: 1, description: '적 하나에게 빛줄기를 날려 피해와 광채 1스택. 파편 1 회복.' },
-      { id: 'cutting-light', name: '어둠을 가르는 빛', kind: 'skill', effect: 'hit', cost: 1, damage: 20, status: 'radiance', stacks: 3, description: '적 하나에게 강한 빛줄기를 날려 피해와 광채 3스택. 광채의 추가 효과는 아직 미정.' }
-    ] }
-  ],
+  // 아군 설정은 characters/루이.js, characters/루인.js에서 수정하세요.
+  // 새 인물 파일을 index.html에 등록한 뒤, 이 배열에 해당 인물 상수를 추가합니다.
+  party: [LOUIS, RUIN],
   enemies: [
     { id: 'jane', name: '제인', hp: 90, role: '자객', aiPattern: ['dagger', 'dagger', 'vital-strike', 'shadow-strike'], skills: [
       { id: 'dagger', name: '단검 찌르기', kind: 'basic', effect: 'hit', cost: 0, damage: 5, description: '적 하나에게 5 피해, 파편 1 회복 · 임시 스킬' },
@@ -336,8 +428,8 @@ function showChoices() {
     const node = button('', () => {
       selectedChoice = choice; battle = createBattle(COMBAT, choice);
       scene(1, '임시 설정 · 선택한 준비', choice.title);
-      narrate([{ text: choice.response }, { text: STORY.encounter }], () => { log = ['전투 시작. 모두 파편 0. 루이 → 루인 → 제인 → 오른팔 → 왼팔 순서로 행동합니다.']; targetId = null; showBattle(); });
-      screen.append(button('다리 위로 · 전투 시작 →', nextText));
+      narrate([{ text: choice.response }, { text: STORY.encounter }], () => { log = [`전투 시작. 모두 파편 0. ${battle.units.map(unit => unit.name).join(' → ')} 순서로 행동합니다.`]; targetId = null; showBattle(); });
+      screen.append(button('전투 시작 →', nextText));
     }, true);
     node.append(element('strong', choice.title), element('span', choice.description)); choices.append(node);
   });
@@ -448,7 +540,7 @@ function showBattle(preserveFocus = false) {
   clearTimeout(enemyTimer);
   scene(2, `임시 전투 · ${battle.round}라운드`, `${actor.name}의 턴`, !preserveFocus);
   screen.classList.add('battle-screen'); screen.prepend(partyPanel());
-  screen.append(element('p', '임시 순서: 루이 → 루인 → 제인 → 오른팔 → 왼팔. 전투 불능 인물은 건너뜁니다.', 'muted'));
+  screen.append(element('p', `임시 순서: ${battle.units.map(unit => unit.name).join(' → ')}. 전투 불능 인물은 건너뜁니다.`, 'muted'));
   screen.append(element('h3', actor.side === 'party' ? '공격할 적을 선택하세요' : '적의 행동을 확인하세요'), enemyPanel());
   const actions = element('div', undefined, 'actions battle-skills');
   if (actor.side === 'party') {
@@ -460,9 +552,10 @@ function showBattle(preserveFocus = false) {
       const cost = action.overdraw ? `파편 ${skill.cost} 초과 사용 · 파편화 2턴` : skill.kind === 'basic' ? '기본 공격 · 파편 +1' : `파편 ${skill.cost} 소모`;
       const node = button('', () => doBattleAction(action), true);
       node.disabled = battleBusy || !available.ok;
-      const damage = skill.damage !== undefined ? `피해 ${skill.damage + (skill.kind === 'basic' ? actor.attackBonus : 0)} · 임시 수치` : '';
+      const damage = skill.damage !== undefined ? `피해 ${skill.damage + (skill.kind === 'basic' ? actor.attackBonus : 0)} · 임시 수치` : skill.damagePerStack !== undefined ? `암흑 1스택당 피해 ${skill.damagePerStack} · 임시 수치` : '';
       node.append(element('strong', skill.name), element('span', cost, 'skill-cost'), element('span', skill.description, 'skill-description'));
       if (damage) node.append(element('span', damage, 'skill-description'));
+      if (skill.status) node.append(element('span', `${skill.status === 'dark' ? '암흑' : '광채'} +${skill.stacks}`, 'skill-description'));
       if (!available.ok) node.append(element('span', available.reason, 'unavailable-reason'));
       actions.append(node);
     });

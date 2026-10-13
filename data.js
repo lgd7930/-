@@ -21,17 +21,9 @@ const STORY = {
 const COMBAT = {
   rules: { maxFragments: 5, initialFragments: 0, basicRecovery: 1, fragmentationTurns: 2, enableOverdraw: false, defenseMultiplier: 0.25 },
   // 아래 피해량·체력은 모두 임시이며 자유롭게 교체할 수 있습니다.
-  party: [
-    { id: 'louis', name: '루이', hp: 85, portraitStyle: 'arin', skills: [
-      { id: 'gravity-ball', name: '그라비티 볼', kind: 'basic', effect: 'hit', cost: 0, damage: 12, status: 'dark', stacks: 1, description: '적 하나에게 중력 구체를 날려 피해와 암흑 1스택. 파편 1 회복.' },
-      { id: 'gravity-fall', name: '그라비티 폴', kind: 'skill', effect: 'detonate-dark', cost: 1, damagePerStack: 18, allowOverdraw: false, description: '암흑이 있는 모든 적에게 시전. 각 적의 암흑을 모두 제거하고 스택당 18 피해(임시).' },
-      { id: 'gravity-chase', name: '그라비티 체이스', kind: 'skill', effect: 'spread-dark', cost: 1, description: '암흑이 있는 적 하나의 스택을 생존 적 전체로 확산. 모든 적에게 최소 암흑 1스택, 추가분은 균등 분배.' }
-    ] },
-    { id: 'ruin', name: '루인', hp: 75, portraitStyle: 'miru', skills: [
-      { id: 'faint-light', name: '어둠을 밝히는 빛', kind: 'basic', effect: 'hit', cost: 0, damage: 10, status: 'radiance', stacks: 1, description: '적 하나에게 빛줄기를 날려 피해와 광채 1스택. 파편 1 회복.' },
-      { id: 'cutting-light', name: '어둠을 가르는 빛', kind: 'skill', effect: 'hit', cost: 1, damage: 20, status: 'radiance', stacks: 3, description: '적 하나에게 강한 빛줄기를 날려 피해와 광채 3스택. 광채의 추가 효과는 아직 미정.' }
-    ] }
-  ],
+  // 아군 설정은 characters/루이.js, characters/루인.js에서 수정하세요.
+  // 새 인물 파일을 index.html에 등록한 뒤, 이 배열에 해당 인물 상수를 추가합니다.
+  party: [LOUIS, RUIN],
   enemies: [
     { id: 'jane', name: '제인', hp: 90, role: '자객', aiPattern: ['dagger', 'dagger', 'vital-strike', 'shadow-strike'], skills: [
       { id: 'dagger', name: '단검 찌르기', kind: 'basic', effect: 'hit', cost: 0, damage: 5, description: '적 하나에게 5 피해, 파편 1 회복 · 임시 스킬' },
